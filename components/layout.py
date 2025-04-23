@@ -1,6 +1,16 @@
-# components/layout.py
-
 import streamlit as st
+import streamlit as st
+
+def show_header():
+    st.markdown("## 🧠 AI Health & Fitness Planner")
+    st.markdown("Get your custom diet and fitness plan based on your lifestyle and goals 💪🥗")
+
+def show_sidebar():
+    st.sidebar.image("https://cdn-icons-png.flaticon.com/512/4697/4697253.png", width=100)
+    st.sidebar.markdown("### 📂 Navigation")
+    return st.sidebar.radio("Choose a section", ["🧍 Profile & Planner", "🍽️ Diet Plan", "🏋️ Fitness Plan", "💬 Q&A"])
+
+
 
 def show_header():
     st.markdown("""
