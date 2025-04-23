@@ -5,6 +5,7 @@ from components.dietary import display_dietary_plan
 from components.fitness import display_fitness_plan
 from services.planner import create_agents
 from models.user_profile import build_profile
+from components.layout import show_header, show_sidebar
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -16,26 +17,27 @@ st.set_page_config(
 st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 def main():
+    show_header()
+    active_tab = show_sidebar()
+
     if 'dietary_plan' not in st.session_state:
         st.session_state.dietary_plan = {}
         st.session_state.fitness_plan = {}
         st.session_state.qa_pairs = []
         st.session_state.plans_generated = False
 
-    st.title(APP_TITLE)
+    if active_tab == "🧍 Profile & Planner":
+        with st.sidebar:
+            st.header("🔑 API Configuration")
+            gemini_api_key = st.text_input("Gemini API Key", type="password", help="Enter your Gemini API key to access the service")
+            
+            if not gemini_api_key:
+                st.warning("⚠️ Please enter your Gemini API Key to proceed")
+                st.markdown("[Get your API key here](https://aistudio.google.com/apikey)")
+                return
+            
+            st.success("API Key accepted!")
 
-    with st.sidebar:
-        st.header("🔑 API Configuration")
-        gemini_api_key = st.text_input("Gemini API Key", type="password", help="Enter your Gemini API key to access the service")
-        
-        if not gemini_api_key:
-            st.warning("⚠️ Please enter your Gemini API Key to proceed")
-            st.markdown("[Get your API key here](https://aistudio.google.com/apikey)")
-            return
-        
-        st.success("API Key accepted!")
-
-    if gemini_api_key:
         try:
             dietary_agent, fitness_agent = create_agents(gemini_api_key)
         except Exception as e:
@@ -43,9 +45,8 @@ def main():
             return
 
         st.header("👤 Your Profile")
-        
         col1, col2 = st.columns(2)
-        
+
         with col1:
             age = st.number_input("Age", min_value=10, max_value=100, step=1)
             height = st.number_input("Height (cm)", min_value=100.0, max_value=250.0, step=0.1)
@@ -61,9 +62,11 @@ def main():
             with st.spinner("Creating your perfect health and fitness routine..."):
                 try:
                     user_profile = build_profile(age, weight, height, sex, activity_level, dietary_preferences, fitness_goals)
-                    
+
                     dietary_plan_response = dietary_agent.run(user_profile)
-                    dietary_plan = {
+                    fitness_plan_response = fitness_agent.run(user_profile)
+
+                    st.session_state.dietary_plan = {
                         "why_this_plan_works": "High Protein, Healthy Fats, Moderate Carbohydrates, and Caloric Balance",
                         "meal_plan": dietary_plan_response.content,
                         "important_considerations": """
@@ -74,8 +77,7 @@ def main():
                         """
                     }
 
-                    fitness_plan_response = fitness_agent.run(user_profile)
-                    fitness_plan = {
+                    st.session_state.fitness_plan = {
                         "goals": "Build strength, improve endurance, and maintain overall fitness",
                         "routine": fitness_plan_response.content,
                         "tips": """
@@ -86,17 +88,27 @@ def main():
                         """
                     }
 
-                    st.session_state.dietary_plan = dietary_plan
-                    st.session_state.fitness_plan = fitness_plan
                     st.session_state.plans_generated = True
                     st.session_state.qa_pairs = []
 
-                    display_dietary_plan(dietary_plan)
-                    display_fitness_plan(fitness_plan)
+                    st.success("✅ Plan successfully generated!")
 
                 except Exception as e:
                     st.error(f"❌ An error occurred: {e}")
 
+    elif active_tab == "🍽️ Diet Plan":
+        if st.session_state.plans_generated:
+            display_dietary_plan(st.session_state.dietary_plan)
+        else:
+            st.info("Generate your plan first in the 'Profile & Planner' section.")
+
+    elif active_tab == "🏋️ Fitness Plan":
+        if st.session_state.plans_generated:
+            display_fitness_plan(st.session_state.fitness_plan)
+        else:
+            st.info("Generate your plan first in the 'Profile & Planner' section.")
+
+    elif active_tab == "💬 Q&A":
         if st.session_state.plans_generated:
             st.header("❓ Questions about your plan?")
             question_input = st.text_input("What would you like to know?")
@@ -104,21 +116,16 @@ def main():
             if st.button("Get Answer"):
                 if question_input:
                     with st.spinner("Finding the best answer for you..."):
-                        dietary_plan = st.session_state.dietary_plan
-                        fitness_plan = st.session_state.fitness_plan
-
-                        context = f"Dietary Plan: {dietary_plan.get('meal_plan', '')}\n\nFitness Plan: {fitness_plan.get('routine', '')}"
-                        full_context = f"{context}\nUser Question: {question_input}"
-
                         try:
-                            agent = Agent(model=gemini_model, show_tool_calls=True, markdown=True)
-                            run_response = agent.run(full_context)
-
-                            if hasattr(run_response, 'content'):
-                                answer = run_response.content
-                            else:
-                                answer = "Sorry, I couldn't generate a response at this time."
-
+                            from google.generativeai import GenerativeModel
+                            model = GenerativeModel("gemini-pro")
+                            context = (
+                                f"Dietary Plan: {st.session_state.dietary_plan.get('meal_plan', '')}\n\n"
+                                f"Fitness Plan: {st.session_state.fitness_plan.get('routine', '')}\n"
+                                f"User Question: {question_input}"
+                            )
+                            run_response = model.generate_content(context)
+                            answer = run_response.text
                             st.session_state.qa_pairs.append((question_input, answer))
                         except Exception as e:
                             st.error(f"❌ An error occurred while getting the answer: {e}")
@@ -128,6 +135,8 @@ def main():
                 for question, answer in st.session_state.qa_pairs:
                     st.markdown(f"**Q:** {question}")
                     st.markdown(f"**A:** {answer}")
+        else:
+            st.info("Generate your plan first to ask questions.")
 
 if __name__ == "__main__":
     main()
