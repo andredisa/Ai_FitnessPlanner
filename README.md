@@ -34,7 +34,7 @@ This project is a **personalized health and fitness planner** built using AI mod
 
 1. **Clone the repository**:
 ```bash
-   git clone https://github.com/yourusername/AI_FitnessPlanner.git
+   git clone https://github.com/andredisa/AI_FitnessPlanner.git
    cd AI_FitnessPlanner
 ```
 2. **Set up a virtual environment:**
